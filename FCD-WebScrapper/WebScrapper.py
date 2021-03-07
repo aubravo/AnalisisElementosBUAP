@@ -8,7 +8,6 @@ import re                                   #Limpieza adicional de los datos obt
 
 
 #Gestión de la conexión al SMBD
-
 def mysql_connection():
     try:
         cnx = mysql.connector.connect(user='root',              #Cambiar usuario de acuerdo a configuración local
@@ -28,39 +27,48 @@ def mysql_connection():
             print(err)
 
 #Extracción de títulos de Números de la revista Elementos
-def titulos(x):                                                                             #La función toma como entrada una lista de enteros, que representan las páginas que se visitarán
-    url_base_ = "https://elementos.buap.mx/num_single.php?num="                             #URL base de la página a análizar
-    query = ("INSERT INTO numeros VALUES (%(Numero_)s, %(Num_Address_)s, %(Titulo_)s);")    #Definición del Query para la subida de datos al SMBD
-    cnx,cursor = mysql_connection()                                                         #Conexión al SMBD
-    for i in x:                                                                             
-        nombre_ = ""                                                                        
-        try:
-            html_ = url.urlopen(url_base_+str(i))
-            soup = BeautifulSoup(html_,'html.parser')
-            print("html download succesfull from "+url_base_+str(i))
+def titulos(x):                                                                             #La función toma como entrada una lista de enteros, 
+                                                                                            #que representan las páginas que se visitarán
 
-            for tag in soup.find_all(True):
-                if tag.name == 'button' and tag.has_attr('class'):
+    url_base_ = "https://elementos.buap.mx/num_single.php?num="                             #URL base de la página a análizar
+
+    query = ("INSERT INTO numeros VALUES (%(Numero_)s, %(Num_Address_)s, %(Titulo_)s);")    #Definición del Query para la subida de datos al SMBD
+
+    cnx,cursor = mysql_connection()                                                         #Conexión al SMBD
+
+    for i in x:                                                                             #Este ciclo, visitará cada una de las direcciones para extraer
+                                                                                            #seleccionar y limpiar la información
+
+        nombre_ = ""                                                                        #Cada inicio de ciclo se vacía la variable para evitar duplicar información
+        try:
+            html_ = url.urlopen(url_base_+str(i))                                           #Se intenta abrir la página web indicada
+            soup = BeautifulSoup(html_,'html.parser')                                       #Se utiliza beautifulSoup para hacer el parsing del html descargado
+            print("Descarga exitosa de: "+url_base_+str(i))
+
+            for tag in soup.find_all(True):                                                 #Se analizan todos los elementos de la página descargada
+                if tag.name == 'button' and tag.has_attr('class'):                          #Si alguno de ellos es del tipo "button" y tiene su atributo class contiene
+                                                                                            #el elemento 'btn-danger', el texto contenido se trata del nombre de la
+                                                                                            #publicación
                     if 'btn-danger' in tag['class']:
                         nombre_ = re.sub(r'[\n\r]','',tag.string).strip()
 
-            data_ = {
+            data_ = {                                                                       #Se almacenan los datos descargados en una lista de acuerdo al formato del query
                 'Numero_' : i,
                 'Num_Address_' : url_base_+str(i),
                 'Titulo_': nombre_
             }
             
-            #cursor.execute(query,data_)
-            #cnx.commit()
-            print("Query complete Elementos Número "+str(i))
+            cursor.execute(query,data_)                                                     #Se realiza el Query
+            cnx.commit()                                                                    #Y se confirma
+            print("Query completo de Elementos Número "+str(i))
 
-        except mysql.connector.Error as err:
+        except mysql.connector.Error as err:                                                #Gestión de errores
             if err != -1:
                 print(err)
                 cursor.close()
                 cnx.close()
     
-    cursor.close()
+    cursor.close()                                                                          #Se cierra la conexión con nuestro SMBD
     cnx.close()
 
 def articulos(x):
