@@ -21,7 +21,6 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="WebScrapper_articulos.py" />
     <Compile Include="WebScrapper.py" />
     <Compile Include="__main__.py" />
   </ItemGroup>
