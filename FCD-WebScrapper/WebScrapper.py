@@ -1,225 +1,158 @@
-from bs4 import BeautifulSoup
-import urllib.request as url
-import mysql.connector
-from mysql.connector import errorcode
-import re
+#Librerias
 
-def titulos(x):
-    url_base_ = "https://elementos.buap.mx/num_single.php?num="
-    query = ("INSERT INTO numeros VALUES (%(Numero_)s, %(Num_Address_)s, %(Titulo_)s);")
+import urllib.request as url                #Realizar la conexión con la página web y descargar el html
+from bs4 import BeautifulSoup               #Realizar la navegación, selección y limpieza de datos del html
+import mysql.connector                      #Conexión con el servidor MySQL
+from mysql.connector import errorcode       #Error Handling de la conexión con servidor MySQL
+import re                                   #Limpieza adicional de los datos obtenidos con BeautifulSoup
+
+
+#Gestión de la conexión al SMBD
+
+def mysql_connection():
     try:
-        cnx = mysql.connector.connect(user='root', password='123456',
+        cnx = mysql.connector.connect(user='root',              #Cambiar usuario de acuerdo a configuración local
+                                  password='123456',            #Cambiar contraseña de acuerdo a configuración local
                                   host='127.0.0.1',
                                   database='cd_elementos')
-        print("Connected to database:")
+        print("Conexión exitosa a la base de datos")
         print(cnx)
-        cursor = cnx.cursor()
-        for i in x:
-            nombre_ = ""
-            try:
-                html_ = url.urlopen(url_base_+str(i))
-                soup = BeautifulSoup(html_,'html.parser')
-                print("html download succesfull from "+url_base_+str(i))
+        cursor = cnx.cursor()                                   #Creación del cursor (herramienta para realizar queries en SQL)
+        return cnx, cursor
+    except mysql.connector.Error as err:                        #Error Handling de la conexión al SMBD
+        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+            print("Usuario o contraseña incorrectos")
+        elif err.errno == errorcode.ER_BAD_DB_ERROR:
+            print("La base de datos no existe")
+        else:
+            print(err)
 
-                for tag in soup.find_all(True):
-                    if tag.name == 'h3' and tag['style'] == 'color:rgb(20, 111, 156)':
-                        print(re.sub(r'[\n\r]','',tag.string).strip())
-                    if tag.name == 'a' and tag.has_attr('style'):
-                        print(re.sub(r'[\n\r,]','',tag.string).strip())
+#Extracción de títulos de Números de la revista Elementos
+def titulos(x):                                                                             #La función toma como entrada una lista de enteros, que representan las páginas que se visitarán
+    url_base_ = "https://elementos.buap.mx/num_single.php?num="                             #URL base de la página a análizar
+    query = ("INSERT INTO numeros VALUES (%(Numero_)s, %(Num_Address_)s, %(Titulo_)s);")    #Definición del Query para la subida de datos al SMBD
+    cnx,cursor = mysql_connection()                                                         #Conexión al SMBD
+    for i in x:                                                                             
+        nombre_ = ""                                                                        
+        try:
+            html_ = url.urlopen(url_base_+str(i))
+            soup = BeautifulSoup(html_,'html.parser')
+            print("html download succesfull from "+url_base_+str(i))
+
+            for tag in soup.find_all(True):
+                if tag.name == 'button' and tag.has_attr('class'):
+                    if 'btn-danger' in tag['class']:
+                        nombre_ = re.sub(r'[\n\r]','',tag.string).strip()
+
+            data_ = {
+                'Numero_' : i,
+                'Num_Address_' : url_base_+str(i),
+                'Titulo_': nombre_
+            }
             
-                data_ = {
-                    'Numero_' : i,
-                    'Num_Address_' : url_base_+str(i),
-                    'Titulo_': nombre_
-                    }
+            #cursor.execute(query,data_)
+            #cnx.commit()
+            print("Query complete Elementos Número "+str(i))
 
-            
-                print("ready for query")
-                cursor.execute(query,data_)
-                cnx.commit()
-                print("query complete")
-
-            except mysql.connector.Error as err:
-                if err != -1:
-                    print(err)
-                else:
-                    raise            
-
-    except mysql.connector.Error as err:
-      if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-        print("Something is wrong with your user name or password")
-      elif err.errno == errorcode.ER_BAD_DB_ERROR:
-        print("Database does not exist")
-      else:
-        print(err)
-    else:
-        print("something went wrong")
-        cursor.close()
-        cnx.close()
+        except mysql.connector.Error as err:
+            if err != -1:
+                print(err)
+                cursor.close()
+                cnx.close()
+    
+    cursor.close()
+    cnx.close()
 
 def articulos(x):
     url_base_ = "https://elementos.buap.mx/num_single.php?num="
     query = ("INSERT INTO InfoArticulos VALUES (%(Numero_)s, %(Titulo_art)s, %(Autor_)s, %(URL_)s);")
-    try:
-        cnx = mysql.connector.connect(user='root', password='123456',
-                                  host='127.0.0.1',
-                                  database='cd_elementos')
-        print(cnx)
-        cursor = cnx.cursor()
-        for i in x:
-            titulo_art = []
-            autor_ = []
-            url_=[]
+    cnx,cursor = mysql_connection()
+    for i in x:
+        titulo_art = []
+        autor_ = []
+        url_=[]
 
-            try:
-                html_ = url.urlopen(url_base_+str(i))
-                soup = BeautifulSoup(html_,'html.parser')
-                print("Descarga de html completa "+url_base_+str(i))
+        try:
+            html_ = url.urlopen(url_base_+str(i))
+            soup = BeautifulSoup(html_,'html.parser')
+            print("Descarga de html completa "+url_base_+str(i))
 
-                for tag in soup.find_all(True):
-                    if tag.name == 'h3' and tag['style'] == 'color:rgb(20, 111, 156)':
-                        titulo_art.append(re.sub(r'[\n\r]','',tag.string).strip())
-                    if tag.name == 'a' and tag.has_attr('style'):
-                        autor_.append(re.sub(r'[\n\r,]','',tag.string).strip())
-                    if tag.name == 'a' and tag.has_attr('class'):
-                        if 'see-article' in tag['class']:
-                            url_.append(tag['href'])
+            for tag in soup.find_all(True):
+                if tag.name == 'h3' and tag['style'] == 'color:rgb(20, 111, 156)':
+                    titulo_art.append(re.sub(r'[\n\r]','',tag.string).strip())
+                if tag.name == 'a' and tag.has_attr('style'):
+                    autor_.append(re.sub(r'[\n\r,]','',tag.string).strip())
+                if tag.name == 'a' and tag.has_attr('class'):
+                    if 'see-article' in tag['class']:
+                        url_.append(tag['href'])
 
-                for j in range(0,len(titulo_art)):
-                    data_ = {
-                        'Numero_' : i,
-                        'Titulo_art' : titulo_art[j],
-                        'Autor_': autor_[j],
-                        'URL_':url_[j]
-                    }
-                    cursor.execute(query,data_)
-                    cnx.commit()
-                    print("Carga de articulo "+str(i)+"-"+str(j+1)+" Completa")
+            for j in range(0,len(titulo_art)):
+                data_ = {
+                    'Numero_' : i,
+                    'Titulo_art' : titulo_art[j],
+                    'Autor_': autor_[j],
+                    'URL_':url_[j]
+                }
+                cursor.execute(query,data_)
+                cnx.commit()
+                print("Carga de articulo "+str(i)+"-"+str(j+1)+" Completa")
 
-            except mysql.connector.Error as err:
-                if err != -1:
-                    print(err)
-                else:
-                    raise            
-
-    except mysql.connector.Error as err:
-      if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-        print("Something is wrong with your user name or password")
-      elif err.errno == errorcode.ER_BAD_DB_ERROR:
-        print("Database does not exist")
-      else:
-        print(err)
-    else:
-        cursor.close()
-        cnx.close()
-
+        except mysql.connector.Error as err:
+            if err != -1:
+                print(err)
+                cursor.close()
+                cnx.close()
+    
+    cursor.close()
+    cnx.close()
 
 def contenido_articulo(x):
     url_base_ = "https://elementos.buap.mx/post.php?id="
     query_ = ("INSERT INTO articulos VALUES (%(Art_Num_)s, %(Address_)s, %(Articulo_)s);")
-    try:
-        cnx = mysql.connector.connect(user='root', password='123456',
-                                  host='127.0.0.1',
-                                  database='cd_elementos')
-        print(cnx)
-        cursor = cnx.cursor()
-        for i in x:
-            article_ = ""
-            try:
-                html_ = url.urlopen(url_base_+str(i))
-                soup = BeautifulSoup(html_,'html.parser')
-                print("html download succesfull from "+url_base_+str(i))
+    cnx,cursor = mysql_connection()
+    for i in x:
+        article_ = ""
+        try:
+            html_ = url.urlopen(url_base_+str(i))
+            soup = BeautifulSoup(html_,'html.parser')
+            print("html download succesfull from "+url_base_+str(i))
 
-                for tag in soup.find_all(True):
-                    if tag.name == 'div' and tag.has_attr('class'):
-                        if 'contenido' in tag['class']:
-                            article_ = tag.get_text(separator="\n").strip().replace("\xa0","")
+            for tag in soup.find_all(True):
+                if tag.name == 'div' and tag.has_attr('class'):
+                    if 'contenido' in tag['class']:
+                        article_ = tag.get_text(separator="\n").strip().replace("\xa0","")
                             
-                data_ = {
-                    'Art_Num_' : i,
-                    'Address_' : url_base_+str(i),
-                    'Articulo_': article_
-                    }
+            data_ = {
+                'Art_Num_' : i,
+                'Address_' : url_base_+str(i),
+                'Articulo_': article_
+                }
                 
-                cursor.execute(query_,data_)
-                cnx.commit()
-                print("Carga de articulo "+str(i)+" Completa")
+            cursor.execute(query_,data_)
+            cnx.commit()
+            print("Carga de articulo "+str(i)+" Completa")
 
-            except mysql.connector.Error as err:
-                if err != -1:
-                    print(err)
-                else:
-                    raise            
-
-    except mysql.connector.Error as err:
-      if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-        print("Something is wrong with your user name or password")
-      elif err.errno == errorcode.ER_BAD_DB_ERROR:
-        print("Database does not exist")
-      else:
-        print(err)
-    else:
-        cursor.close()
-        cnx.close()
+        except mysql.connector.Error as err:
+            if err != -1:
+                print(err)
+                cursor.close()
+                cnx.close()
+    cursor.close()
+    cnx.close()
 
 def autores(x):
     url_base_ = "https://elementos.buap.mx/authors_single.php?id="
-    query = ("INSERT INTO InfoArticulos VALUES (%(Numero_)s, %(Titulo_art)s, %(Autor_)s, %(URL_)s);")
-    try:
-        cnx = mysql.connector.connect(user='root', password='123456',
-                                  host='127.0.0.1',
-                                  database='cd_elementos')
-        print(cnx)
-        cursor = cnx.cursor()
-        for i in x:
-            titulo_art = []
-            url_=[]
-
-            try:
-                opener = url.build_opener()
-                opener.addheaders = [('User-agent', 'Mozilla/5.0')]
-                html_ = opener.open(url_base_+str(i))
-                soup = BeautifulSoup(html_,'html.parser')
-                #print("Descarga de html completa "+url_base_+str(i))
-                empty_author = False
-
-                for tag in soup.find_all(True):
-                    if tag.name == 'h2' and not tag.has_attr('class'):
-                        if 'Por el momento no hay artículos individuales.' in tag.get_text():
-                            empty_author = True
-               
-                if not empty_author:
-                   print(i)
-                       
-
-                #for j in range(0,len(titulo_art)):
-                #    data_ = {
-                #        'Numero_' : i,
-                #        'Titulo_art' : titulo_art[j],
-                #        'Autor_': autor_[j],
-                #        'URL_':url_[j]
-                #    }
-                #    cursor.execute(query,data_)
-                #    cnx.commit()
-                #    print("Carga de articulo "+str(i)+"-"+str(j+1)+" Completa")
-
-            except mysql.connector.Error as err:
-                if err != -1:
-                    print(err)
-                else:
-                    raise            
-
-    except mysql.connector.Error as err:
-      if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-        print("Something is wrong with your user name or password")
-      elif err.errno == errorcode.ER_BAD_DB_ERROR:
-        print("Database does not exist")
-      else:
-        print(err)
-    else:
-        cursor.close()
-        cnx.close()
-
-
-if __name__ == "__main__":
-    main()
+    for i in x:
+        try:
+            opener = url.build_opener()
+            opener.addheaders = [('User-agent', 'Mozilla/5.0')]
+            html_ = opener.open(url_base_+str(i))
+            soup = BeautifulSoup(html_,'html.parser')
+            empty_author = False
+            for tag in soup.find_all(True):
+                if tag.name == 'h2' and not tag.has_attr('class'):
+                    if 'Por el momento no hay artículos individuales.' in tag.get_text():
+                        empty_author = True
+            if not empty_author:
+                print(i)
+        except: pass
