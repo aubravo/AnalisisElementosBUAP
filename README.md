@@ -1,12 +1,12 @@
-# FCD-WebScrapper
+# Análisis de artículos publicados en la revista Elementos de la BUAP
 
-Código para sección de Web Scapping del proyecto Final de Fundamentos de Ciencia de Datos:
-Análisis de artículos publicados en la revista Elementos de la BUAP
+Proyecto Final de Fundamentos de Ciencia de Datos
 
+
+
+## WebScrapping
 La herramienta se encuentra desarrollada en Python y en algunos casos se complementa con ParseHub para la extracción de la información
-
-## Funcionamiento
-
+### Funcionamiento
 <ol>
   <li>Se establece una conexión con una base de datos MySQL utilizando la librería mysqlconnector de Python.</li>
   <li>La entrada de cada una de las funciones es un rango de direcciones a analizar:
