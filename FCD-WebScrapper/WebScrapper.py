@@ -10,8 +10,8 @@ import re                                   #Limpieza adicional de los datos obt
 #Gestión de la conexión al SMBD
 def mysql_connection():
     try:
-        cnx = mysql.connector.connect(user='root',              #Cambiar usuario de acuerdo a configuración local
-                                  password='123456',            #Cambiar contraseña de acuerdo a configuración local
+        cnx = mysql.connector.connect(user='user',              #Cambiar usuario de acuerdo a configuración local
+                                  password='password',            #Cambiar contraseña de acuerdo a configuración local
                                   host='127.0.0.1',
                                   database='cd_elementos')
         print("Conexión exitosa a la base de datos")
