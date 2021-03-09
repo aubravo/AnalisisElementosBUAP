@@ -3,6 +3,8 @@
 Código para sección de Web Scapping del proyecto Final de Fundamentos de Ciencia de Datos:
 Análisis de artículos publicados en la revista Elementos de la BUAP
 
+La herramienta se encuentra desarrollada en Python y en algunos casos se complementa con ParseHub para la extracción de la información
+
 ## Funcionamiento
 
 <ol>
