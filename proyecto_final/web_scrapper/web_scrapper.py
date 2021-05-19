@@ -1,75 +1,42 @@
 # -*- coding: utf-8 -*-
-#Librerias
 
-import urllib.request as url                #Realizar la conexión con la página web y descargar el html
-from bs4 import BeautifulSoup               #Realizar la navegación, selección y limpieza de datos del html
-import mysql.connector                      #Conexión con el servidor MySQL
-from mysql.connector import errorcode       #Error Handling de la conexión con servidor MySQL
-import re                                   #Limpieza adicional de los datos obtenidos con BeautifulSoup
+import urllib.request as url
+from bs4 import BeautifulSoup
+import re
+from proyecto_final.mysqlconnector.connection import connect
 
-
-#Gestión de la conexión al SMBD
-def mysql_connection():
-    try:
-        cnx = mysql.connector.connect(user='root',              #Cambiar usuario de acuerdo a configuración local
-                                  password='123456',            #Cambiar contraseña de acuerdo a configuración local
-                                  host='127.0.0.1',
-                                  database='cd_elementos')
-        print("Conexión exitosa a la base de datos")
-        print(cnx)
-        cursor = cnx.cursor()                                   #Creación del cursor (herramienta para realizar queries en SQL)
-        return cnx, cursor
-    except mysql.connector.Error as err:                        #Error Handling de la conexión al SMBD
-        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-            print("Usuario o contraseña incorrectos")
-        elif err.errno == errorcode.ER_BAD_DB_ERROR:
-            print("La base de datos no existe")
-        else:
-            print(err)
-
-#Extracción de títulos de Números de la revista Elementos
-def titulos(x):                                                                             #La función toma como entrada una lista de enteros, 
-                                                                                            #que representan las páginas que se visitarán
-
-    url_base_ = "https://elementos.buap.mx/num_single.php?num="                             #URL base de la página a análizar
-
-    query = ("INSERT INTO numeros VALUES (%(Numero_)s, %(Num_Address_)s, %(Titulo_)s);")    #Definición del Query para la subida de datos al SMBD
-
-    cnx,cursor = mysql_connection()                                                         #Conexión al SMBD
-
-    for i in x:                                                                             #Este ciclo, visitará cada una de las direcciones para extraer
-                                                                                            #seleccionar y limpiar la información
-
-        nombre_ = ""                                                                        #Cada inicio de ciclo se vacía la variable para evitar duplicar información
+def titulos(x):
+    url_base_ = "https://elementos.buap.mx/num_single.php?num="
+    query = ("INSERT INTO numeros VALUES (%(Numero_)s, %(Num_Address_)s, %(Titulo_)s);")
+    cnx,cursor = mysql_connection()
+    for i in x:
+        nombre_ = ""
         try:
-            html_ = url.urlopen(url_base_+str(i))                                           #Se intenta abrir la página web indicada
-            soup = BeautifulSoup(html_,'html.parser')                                       #Se utiliza beautifulSoup para hacer el parsing del html descargado
+            html_ = url.urlopen(url_base_+str(i))
+            soup = BeautifulSoup(html_,'html.parser')
             print("Descarga exitosa de: "+url_base_+str(i))
-
-            for tag in soup.find_all(True):                                                 #Se analizan todos los elementos de la página descargada
-                if tag.name == 'button' and tag.has_attr('class'):                          #Si alguno de ellos es del tipo "button" y tiene su atributo class contiene
-                                                                                            #el elemento 'btn-danger', el texto contenido se trata del nombre de la
-                                                                                            #publicación
+            for tag in soup.find_all(True):
+                if tag.name == 'button' and tag.has_attr('class'):
                     if 'btn-danger' in tag['class']:
                         nombre_ = re.sub(r'[\n\r]','',tag.string).strip()
 
-            data_ = {                                                                       #Se almacenan los datos descargados en una lista de acuerdo al formato del query
+            data_ = {
                 'Numero_' : i,
                 'Num_Address_' : url_base_+str(i),
                 'Titulo_': nombre_
             }
             
-            cursor.execute(query,data_)                                                     #Se realiza el Query
-            cnx.commit()                                                                    #Y se confirma
+            cursor.execute(query,data_)
+            cnx.commit()
             print("Query completo de Elementos Número "+str(i))
 
-        except mysql.connector.Error as err:                                                #Gestión de errores
+        except mysql.connector.Error as err:
             if err != -1:
                 print(err)
                 cursor.close()
                 cnx.close()
     
-    cursor.close()                                                                          #Se cierra la conexión con nuestro SMBD
+    cursor.close()
     cnx.close()
 
 def articulos(x):
@@ -165,3 +132,37 @@ def autores(x):
             if not empty_author:
                 print(i)
         except: pass
+
+
+def get_temas ():
+    url_head = "https://search.scielo.org/?q=lenguaje&lang=es&count=15&from=0&output=site&sort=&format=summary&fb=&page=1&q="
+    url_tail = "&lang=es&page=1"
+    clasif = ["Ciencias de la Salud", "Humanidades", "Ciencias Sociales Aplicadas", "Ciencias Agrícolas", "Ciencias Biológicas","Ciencias Exactas y de la Tierra","Ingenierias","Multidisciplinaria","Lingüistica, Letras y Artes"]
+    i = 0
+    cnx,cursor = connect( user = "root", password = "123456", host = "127.0.0.1", database = "modelo_multimencional_elementos" )
+    cursor.callproc("getMaxPalabraXArticulo")
+
+    cnx2,cursor2 = connect( user = "root", password = "123456", host = "127.0.0.1", database = "cd_elementos" )
+    query = ("INSERT INTO temaspalabras VALUES (%(palabra_)s, %(IDArticulo_)s, %(Tema_)s, %(CuentaArticulos_)s);")
+
+    for result in cursor.stored_results():
+        cursor_buff = result.fetchall()
+        for (Palabra, Rep, IdRev, IdAutor, IdArt ) in cursor_buff:
+            try:
+                html_ = url.urlopen(url_head+Palabra+url_tail)
+                soup = BeautifulSoup(html_,'html.parser')
+                for tag in soup.find_all("li"):
+                    if tag.has_attr("data-item"):
+                        if tag["data-item"] in clasif:
+                            data_ = {
+                               "palabra_"       :   Palabra,
+                               "IDArticulo_"     :   IdArt,
+                               "Tema_"          :   tag["data-item"],
+                               "CuentaArticulos_":  tag["data-count"]
+                            }
+                            cursor2.execute(query,data_)
+                            cnx2.commit()
+                print(IdArt)
+
+            except:pass
+            

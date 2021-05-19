@@ -3,8 +3,9 @@
     "",
     "\\proyecto_final",
     "\\proyecto_final\\article_analysis",
+    "\\proyecto_final\\mysqlconnector",
     "\\proyecto_final\\web_scrapper"
   ],
-  "SelectedNode": "\\proyecto_final\\article_analysis\\article_analysis.py",
+  "SelectedNode": "\\proyecto_final\\web_scrapper\\web_scrapper.py",
   "PreviewInSolutionExplorer": false
 }

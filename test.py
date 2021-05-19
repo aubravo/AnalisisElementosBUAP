@@ -1,11 +1,6 @@
-import WebScrapper
+import proyecto_final.web_scrapper.web_scrapper as WebScrap
 
-#Posibilidades de definición del rango para la función
-#x=[*range(1,122,1)]
-#x=[1210]
+WebScrap.get_temas()
 
-#Extracciones posibles
-#WebScrapper.articulos(x)
-#WebScrapper.contenido_articulo(x)
-#WebScrapper.autores(x)
-#WebScrapper.titulos(x)
+
+
